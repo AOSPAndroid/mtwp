@@ -1,8 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DIST_DIR = path.join(__dirname, 'dist');
 
 app.use(cors());
 
@@ -26,6 +31,9 @@ const STATIONS = {
     nwsStation: null,
     nwsGrid: null,
     iemNetwork: null,
+    metOfficeUrl: 'https://www.metoffice.gov.uk/weather/forecast/gcpvj0v07',
+    wuUrl: 'https://www.wunderground.com/forecast/gb/london',
+    wuUnit: 'C',
   },
   paris: {
     icao: 'LFPG',
@@ -45,6 +53,8 @@ const STATIONS = {
     nwsStation: null,
     nwsGrid: null,
     iemNetwork: null,
+    wuUrl: 'https://www.wunderground.com/forecast/fr/paris',
+    wuUnit: 'C',
   },
   dallas: {
     icao: 'KDAL',
@@ -62,6 +72,8 @@ const STATIONS = {
     nwsStation: 'KDAL',
     nwsGrid: { office: 'FWD', x: 85, y: 106 },
     iemNetwork: 'TX_ASOS',
+    wuUrl: 'https://www.wunderground.com/forecast/us/tx/dallas',
+    wuUnit: 'F',
   },
   miami: {
     icao: 'KMIA',
@@ -79,25 +91,8 @@ const STATIONS = {
     nwsStation: 'KMIA',
     nwsGrid: { office: 'MFL', x: 76, y: 52 },
     iemNetwork: 'FL_ASOS',
-  },
-  paris: {
-    icao: 'LFPG',
-    name: 'Paris Charles de Gaulle',
-    displayName: 'PARIS',
-    lat: 49.0097,
-    lon: 2.5479,
-    timezone: 'Europe/Paris',
-    unit: 'C',
-    openMeteoModels: ['ecmwf_ifs025', 'gfs_seamless', 'meteofrance_arome_france_hd', 'ukmo_seamless'],
-    modelLabels: {
-      ecmwf_ifs025: 'ECMWF',
-      gfs_seamless: 'GFS',
-      meteofrance_arome_france_hd: 'AROME',
-      ukmo_seamless: 'UKMO',
-    },
-    nwsStation: null,
-    nwsGrid: null,
-    iemNetwork: null,
+    wuUrl: 'https://www.wunderground.com/forecast/us/fl/miami',
+    wuUnit: 'F',
   },
 };
 
@@ -125,6 +120,34 @@ async function safeFetch(url, timeoutMs = 10000) {
     clearTimeout(timer);
     throw e;
   }
+}
+
+async function safeFetchText(url, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'TempTerminal/2.0 (polymarket-weather-aggregator)' },
+    });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
+  }
+}
+
+function extractFirstTemp(html, patterns) {
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m && m[1] != null) {
+      const n = parseFloat(m[1]);
+      if (!Number.isNaN(n)) return n;
+    }
+  }
+  return null;
 }
 
 // ─── Aggregate Route: All data for a city ────────────────────────
@@ -258,6 +281,67 @@ app.get('/api/all/:city', async (req, res) => {
     );
   }
 
+  // 6) Met Office page scrape (UK only, fallback until API key is ready)
+  if (cfg.metOfficeUrl) {
+    tasks.push(
+      safeFetchText(cfg.metOfficeUrl)
+        .then(html => {
+          const maxC = extractFirstTemp(html, [
+            /"maxTemperature"\s*:\s*"?(-?\d+(?:\.\d+)?)"?/i,
+            /"temperature"\s*:\s*"?(-?\d+(?:\.\d+)?)"?\s*,\s*"units"\s*:\s*"c"/i,
+          ]);
+
+          if (maxC != null) {
+            sources.push({
+              id: 'metoffice_scrape',
+              name: 'Met Office (scrape)',
+              type: 'forecast',
+              forecasts: [{
+                name: 'Today',
+                temp_c: maxC,
+                temp_f: cToF(maxC),
+                startTime: null,
+                shortForecast: 'Scraped',
+              }],
+            });
+          }
+        })
+        .catch(() => { })
+    );
+  }
+
+  // 7) Weather Underground page scrape (all cities, fallback until API key is ready)
+  if (cfg.wuUrl) {
+    tasks.push(
+      safeFetchText(cfg.wuUrl)
+        .then(html => {
+          const maxRaw = extractFirstTemp(html, [
+            /"temperatureMax"\s*:\s*\[\s*\{\s*"value"\s*:\s*(-?\d+(?:\.\d+)?)/i,
+            /"tempHi"\s*:\s*\{[^}]*"value"\s*:\s*(-?\d+(?:\.\d+)?)/i,
+            /"high"\s*:\s*(-?\d+(?:\.\d+)?)/i,
+          ]);
+
+          if (maxRaw != null) {
+            const temp_c = cfg.wuUnit === 'F' ? fToC(maxRaw) : maxRaw;
+            const temp_f = cfg.wuUnit === 'F' ? maxRaw : cToF(maxRaw);
+            sources.push({
+              id: 'wu_scrape',
+              name: 'Weather Underground (scrape)',
+              type: 'forecast',
+              forecasts: [{
+                name: 'Today',
+                temp_c,
+                temp_f,
+                startTime: null,
+                shortForecast: 'Scraped',
+              }],
+            });
+          }
+        })
+        .catch(() => { })
+    );
+  }
+
   await Promise.all(tasks);
 
   res.json({
@@ -281,6 +365,14 @@ app.get('/api/config', (req, res) => {
     unit: s.unit,
   }));
   res.json({ cities });
+});
+
+// ─── Static frontend (production) ───────────────────────────────
+app.use(express.static(DIST_DIR));
+
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  res.sendFile(path.join(DIST_DIR, 'index.html'));
 });
 
 app.listen(PORT, () => {
