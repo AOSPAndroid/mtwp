@@ -11,176 +11,54 @@ const DIST_DIR = path.join(__dirname, 'dist');
 
 app.use(cors());
 
-// ─── Station Config ──────────────────────────────────────────────
 const STATIONS = {
   london: {
-    icao: 'EGLL',
-    name: 'London City Airport',
-    displayName: 'LONDON',
-    lat: 51.4775,
-    lon: -0.4614,
-    timezone: 'Europe/London',
-    unit: 'C',
+    icao: 'EGLL', name: 'London City Airport', displayName: 'LONDON',
+    lat: 51.4775, lon: -0.4614, timezone: 'Europe/London', unit: 'C',
     openMeteoModels: ['ecmwf_ifs025', 'gfs_seamless', 'meteofrance_arome_france_hd', 'ukmo_seamless'],
-    modelLabels: {
-      ecmwf_ifs025: 'ECMWF',
-      gfs_seamless: 'GFS',
-      meteofrance_arome_france_hd: 'AROME',
-      ukmo_seamless: 'UKMO',
-    },
+    modelLabels: { ecmwf_ifs025: 'ECMWF', gfs_seamless: 'GFS', meteofrance_arome_france_hd: 'AROME', ukmo_seamless: 'UKMO' },
     scrapperUrls: [
       { id: 'metoffice', name: 'Met Office', url: 'https://www.metoffice.gov.uk/weather/forecast/gcpvj0v07' },
       { id: 'wunderground', name: 'Weather Underground', url: 'https://www.wunderground.com/weather/gb/london' },
       { id: 'bbc', name: 'BBC Weather', url: 'https://www.bbc.com/weather/2643743' },
       { id: 'accu', name: 'AccuWeather', url: 'https://www.accuweather.com/en/gb/london/ec4a-2/weather-forecast/328328' }
     ],
-    nwsStation: null,
-    nwsGrid: null,
-    iemNetwork: null,
+    nwsStation: null, nwsGrid: null, iemNetwork: null,
   },
   paris: {
-    icao: 'LFPG',
-    name: 'Paris Charles de Gaulle',
-    displayName: 'PARIS',
-    lat: 49.0097,
-    lon: 2.5479,
-    timezone: 'Europe/Paris',
-    unit: 'C',
+    icao: 'LFPG', name: 'Paris Charles de Gaulle', displayName: 'PARIS',
+    lat: 49.0097, lon: 2.5479, timezone: 'Europe/Paris', unit: 'C',
     openMeteoModels: ['ecmwf_ifs025', 'gfs_seamless', 'meteofrance_arome_france_hd', 'ukmo_seamless'],
-    modelLabels: {
-      ecmwf_ifs025: 'ECMWF',
-      gfs_seamless: 'GFS',
-      meteofrance_arome_france_hd: 'AROME',
-      ukmo_seamless: 'UKMO',
-    },
-    scrapperUrls: [
-      { id: 'meteo', name: 'Météo-France', url: 'https://meteofrance.com/previsions-meteo-france/paris/75000' }
-    ],
-    nwsStation: null,
-    nwsGrid: null,
-    iemNetwork: null,
+    modelLabels: { ecmwf_ifs025: 'ECMWF', gfs_seamless: 'GFS', meteofrance_arome_france_hd: 'AROME', ukmo_seamless: 'UKMO' },
+    scrapperUrls: [ { id: 'meteo', name: 'Météo-France', url: 'https://meteofrance.com/previsions-meteo-france/paris/75000' } ],
+    nwsStation: null, nwsGrid: null, iemNetwork: null,
   },
   dallas: {
-    icao: 'KDAL',
-    name: 'Dallas Love Field',
-    displayName: 'DALLAS',
-    lat: 32.8471,
-    lon: -96.8518,
-    timezone: 'America/Chicago',
-    unit: 'F',
+    icao: 'KDAL', name: 'Dallas Love Field', displayName: 'DALLAS',
+    lat: 32.8471, lon: -96.8518, timezone: 'America/Chicago', unit: 'F',
     openMeteoModels: ['ecmwf_ifs025', 'gfs_seamless'],
-    modelLabels: {
-      ecmwf_ifs025: 'ECMWF',
-      gfs_seamless: 'GFS',
-    },
-    scrapperUrls: [
-      { id: 'weather_chan', name: 'Weather Channel', url: 'https://weather.com/weather/today/l/Dallas+TX' }
-    ],
-    nwsStation: 'KDAL',
-    nwsGrid: { office: 'FWD', x: 85, y: 106 },
-    iemNetwork: 'TX_ASOS',
+    modelLabels: { ecmwf_ifs025: 'ECMWF', gfs_seamless: 'GFS' },
+    scrapperUrls: [ { id: 'weather_chan', name: 'Weather Channel', url: 'https://weather.com/weather/today/l/Dallas+TX' } ],
+    nwsStation: 'KDAL', nwsGrid: { office: 'FWD', x: 85, y: 106 }, iemNetwork: 'TX_ASOS',
   },
   miami: {
-    icao: 'KMIA',
-    name: 'Miami Intl Airport',
-    displayName: 'MIAMI',
-    lat: 25.7932,
-    lon: -80.2906,
-    timezone: 'America/New_York',
-    unit: 'F',
+    icao: 'KMIA', name: 'Miami Intl Airport', displayName: 'MIAMI',
+    lat: 25.7932, lon: -80.2906, timezone: 'America/New_York', unit: 'F',
     openMeteoModels: ['ecmwf_ifs025', 'gfs_seamless'],
-    modelLabels: {
-      ecmwf_ifs025: 'ECMWF',
-      gfs_seamless: 'GFS',
-    },
-    scrapperUrls: [
-      { id: 'weather_chan', name: 'Weather Channel', url: 'https://weather.com/weather/today/l/Miami+FL' }
-    ],
-    nwsStation: 'KMIA',
-    nwsGrid: { office: 'MFL', x: 76, y: 52 },
-    iemNetwork: 'FL_ASOS',
+    modelLabels: { ecmwf_ifs025: 'ECMWF', gfs_seamless: 'GFS' },
+    scrapperUrls: [ { id: 'weather_chan', name: 'Weather Channel', url: 'https://weather.com/weather/today/l/Miami+FL' } ],
+    nwsStation: 'KMIA', nwsGrid: { office: 'MFL', x: 76, y: 52 }, iemNetwork: 'FL_ASOS',
   },
 };
 
-// ─── Scrapper Logic ──────────────────────────────────────────────
-async function scrapeForecastForDay(cfg, dayOffset) {
-  if (!cfg.scrapperUrls) return [];
-  const scraped = [];
-  const dayLabels = ['Today', 'Tomorrow', 'Day After'];
-  const targetDate = new Date();
-  targetDate.setDate(targetDate.getDate() + dayOffset);
-  const dateStr = targetDate.toISOString().split('T')[0];
-
-  const tasks = cfg.scrapperUrls.map(async (site) => {
-    try {
-      // Improved query to target "Maximum high"
-      const query = `${site.name} ${cfg.displayName} max temperature forecast ${dayLabels[dayOffset]} ${dateStr}`;
-      const data = await safeFetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`, 10000, {
-        'Accept': 'application/json',
-        'X-Subscription-Token': 'BSA5cySMsS-dOvqz4kIyopBT8v0SOhq'
-      });
-
-      const results = data.web?.results || [];
-      let maxTemp = null;
-      for (const res of results) {
-        const text = (res.description + ' ' + res.title).toLowerCase();
-        
-        // REFINED REGEX: Look for "high X" or "max X" or range "X / Y"
-        // Also handling "Feels like ... high 11C"
-        const match = text.match(/high (?:of )?(\d+)/i) || 
-                      text.match(/max (?:of )?(\d+)/i) ||
-                      text.match(/(\d+)°?\s?\/\s?(\d+)°/) || // Handle 52 / 47 format
-                      text.match(/(\d+)°/);
-                            
-        if (match) {
-          // If match group 1 is high and group 2 is low (for range)
-          maxTemp = parseInt(match[1]);
-          
-          // Smart auto-conversion based on city unit
-          if (cfg.unit === 'C' && maxTemp > 40) maxTemp = fToC(maxTemp);
-          else if (cfg.unit === 'F' && maxTemp < 32) maxTemp = cToF(maxTemp);
-          break;
-        }
-      }
-      if (maxTemp) {
-        scraped.push({
-          id: `scraped_${site.id}_d${dayOffset}`,
-          name: `${site.name}`,
-          type: 'scraped',
-          temp_c: cfg.unit === 'C' ? maxTemp : fToC(maxTemp),
-          temp_f: cfg.unit === 'F' ? maxTemp : cToF(maxTemp),
-          url: site.url
-        });
-      }
-    } catch (e) {
-      console.error(`Scrape failed for ${site.name} D+${dayOffset}:`, e.message);
-    }
-  });
-  
-  await Promise.all(tasks);
-  return scraped;
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────
-function cToF(c) {
-  return c != null ? Math.round((c * 9 / 5 + 32) * 10) / 10 : null;
-}
-
-function fToC(f) {
-  return f != null ? Math.round(((f - 32) * 5 / 9) * 10) / 10 : null;
-}
+function cToF(c) { return c != null ? Math.round((c * 9 / 5 + 32) * 10) / 10 : null; }
+function fToC(f) { return f != null ? Math.round(((f - 32) * 5 / 9) * 10) / 10 : null; }
 
 async function safeFetch(url, timeoutMs = 15000, headers = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { 
-        'User-Agent': 'TempTerminal/2.0 (polymarket-weather-aggregator)',
-        ...headers
-      },
-    });
+    const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'TempTerminal/2.0', ...headers } });
     clearTimeout(timer);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
@@ -190,7 +68,57 @@ async function safeFetch(url, timeoutMs = 15000, headers = {}) {
   }
 }
 
-// ─── Aggregate Route: All data for a city ────────────────────────
+const CACHE = {};
+const CACHE_TTL = 5 * 60 * 1000;
+
+async function scrapeForecastForDay(cfg, dayOffset) {
+  if (!cfg.scrapperUrls) return [];
+  const scraped = [];
+  const dayLabels = ['Today', 'Tomorrow', 'Day After'];
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + dayOffset);
+  const dateStr = targetDate.toISOString().split('T')[0];
+  const cacheKey = `${cfg.displayName}_${dayOffset}_${dateStr}`;
+
+  if (CACHE[cacheKey] && (Date.now() - CACHE[cacheKey].ts < CACHE_TTL)) {
+    return CACHE[cacheKey].data;
+  }
+
+  // Sequential scraping to avoid 429 and session locks
+  for (const site of cfg.scrapperUrls) {
+    try {
+      const query = `${site.name} ${cfg.displayName} forecast high max temperature ${dayLabels[dayOffset]} ${dateStr}`;
+      
+      // Delay to respect Brave Search rate limits
+      await new Promise(r => setTimeout(r, 1500));
+
+      const data = await safeFetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`, 10000, {
+        'Accept': 'application/json',
+        'X-Subscription-Token': 'BSA5cySMsS-dOvqz4kIyopBT8v0SOhq'
+      });
+      const results = data.web?.results || [];
+      for (const res of results) {
+        const text = (res.description + ' ' + res.title).toLowerCase();
+        const match = text.match(/high (?:of )?(\d+)/i) || 
+                      text.match(/max (?:of )?(\d+)/i) ||
+                      text.match(/(\d+)°?\s?\/\s?(\d+)°/) ||
+                      text.match(/(\d+)°/);
+        if (match) {
+          let val = parseInt(match[1]);
+          if (cfg.unit === 'C' && val > 40) val = fToC(val);
+          else if (cfg.unit === 'F' && val < 32) val = cToF(val);
+          
+          scraped.push({ id: `scraped_${site.id}_d${dayOffset}`, name: site.name, type: 'scraped', temp_c: cfg.unit === 'C' ? val : fToC(val), temp_f: cfg.unit === 'F' ? val : cToF(val), url: site.url });
+          break;
+        }
+      }
+    } catch (e) { console.error(`Scrape fail: ${site.name}`, e.message); }
+  }
+  
+  CACHE[cacheKey] = { ts: Date.now(), data: scraped };
+  return scraped;
+}
+
 app.get('/api/all/:city', async (req, res) => {
   const city = req.params.city.toLowerCase();
   const dayOffset = parseInt(req.query.day || '0');
@@ -200,86 +128,27 @@ app.get('/api/all/:city', async (req, res) => {
   const sources = [];
   const tasks = [];
 
-  // 2) NWS Observation (US only)
-  if (cfg.nwsStation && dayOffset === 0) {
-    tasks.push(
-      safeFetch(`https://api.weather.gov/stations/${cfg.nwsStation}/observations/latest`)
-        .then(d => {
-          const p = d?.properties;
-          if (p?.temperature?.value != null) {
-            sources.push({
-              id: 'nws_obs',
-              name: 'NWS Observation',
-              type: 'live',
-              temp_c: Math.round(p.temperature.value * 10) / 10,
-              temp_f: cToF(p.temperature.value),
-              time: p.timestamp || null,
-            });
-          }
-        })
-        .catch(() => { })
-    );
-  }
-
-  // 4) Open-Meteo Multi-Model — daily max temps
   const models = cfg.openMeteoModels.join(',');
   const omUrl = `https://api.open-meteo.com/v1/forecast?latitude=${cfg.lat}&longitude=${cfg.lon}&daily=temperature_2m_max&models=${models}&timezone=${encodeURIComponent(cfg.timezone)}&forecast_days=3`;
-  tasks.push(
-    safeFetch(omUrl)
-      .then(data => {
-        for (const model of cfg.openMeteoModels) {
-          const key = `temperature_2m_max_${model}`;
-          if (data?.daily?.[key]) {
-            const val = data.daily[key][dayOffset];
-            sources.push({
-              id: `model_${cfg.modelLabels[model]}`,
-              name: cfg.modelLabels[model],
-              type: 'model',
-              temp_c: val,
-              temp_f: cToF(val)
-            });
-          }
-        }
-      })
-      .catch(() => { })
-  );
+  tasks.push(safeFetch(omUrl).then(data => {
+    for (const model of cfg.openMeteoModels) {
+      const key = `temperature_2m_max_${model}`;
+      if (data?.daily?.[key]) {
+        const val = data.daily[key][dayOffset];
+        sources.push({ id: `model_${cfg.modelLabels[model]}`, name: cfg.modelLabels[model], type: 'model', temp_c: val, temp_f: cToF(val) });
+      }
+    }
+  }).catch(() => {}));
 
   await Promise.all(tasks);
-
-  // 6) Scrapper Integration
   const scraped = await scrapeForecastForDay(cfg, dayOffset);
   sources.push(...scraped);
 
-  res.json({
-    city,
-    station: cfg.icao,
-    displayName: cfg.displayName,
-    unit: cfg.unit,
-    sources,
-    fetchedAt: new Date().toISOString(),
-  });
+  res.json({ city, station: cfg.icao, displayName: cfg.displayName, unit: cfg.unit, sources, fetchedAt: new Date().toISOString() });
 });
 
-// ─── Config endpoint for frontend ───────────────────────────────
 app.get('/api/config', (req, res) => {
-  const cities = Object.entries(STATIONS).map(([key, s]) => ({
-    key,
-    icao: s.icao,
-    name: s.name,
-    displayName: s.displayName,
-    unit: s.unit,
-  }));
-  res.json({ cities });
+  res.json({ cities: Object.entries(STATIONS).map(([key, s]) => ({ key, name: s.name, displayName: s.displayName, unit: s.unit })) });
 });
 
-// ─── Static frontend (production) ───────────────────────────────
-app.use(express.static(DIST_DIR));
-
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api/')) return next();
-  res.sendFile(path.join(DIST_DIR, 'index.html'));
-});
-
-app.listen(PORT, () => {
-  console.log(`\x1b[32m[TEMP-TERMINAL]\x1b[0m Server running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
