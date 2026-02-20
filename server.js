@@ -130,9 +130,16 @@ async function scrapeForecast(cfg) {
             let maxTemp = null;
             for (const res of results) {
               const text = (res.description + ' ' + res.title).toLowerCase();
-              const match = text.match(/high (?:of )?(\d+)/) || text.match(/(\d+)°/);
+              
+              // REFINED REGEX: Prioritize "Maximum daytime temperature" for Met Office specifically
+              const isMetOffice = site.id === 'metoffice';
+              const match = (isMetOffice ? text.match(/maximum daytime temperature:\s*(\d+)/i) : null) || 
+                            text.match(/high (?:of )?(\d+)/) || 
+                            text.match(/(\d+)°/);
+                            
               if (match) {
                 maxTemp = parseInt(match[1]);
+                // Smart auto-conversion
                 if (cfg.unit === 'C' && maxTemp > 40) maxTemp = fToC(maxTemp);
                 else if (cfg.unit === 'F' && maxTemp < 32) maxTemp = cToF(maxTemp);
                 break;
