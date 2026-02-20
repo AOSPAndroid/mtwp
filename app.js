@@ -2,7 +2,7 @@
    MTWP — App Logic (v2.1 - On-Demand Loading)
    ═══════════════════════════════════════════════════════════════ */
 
-const API = 'https://chat-hazardous-determination-inns.trycloudflare.com';
+const API = 'https://key-ebony-ton-trustee.trycloudflare.com';
 const REFRESH_SECONDS = 60;
 const CITIES = ['london', 'paris', 'dallas', 'miami'];
 
