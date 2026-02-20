@@ -61,7 +61,7 @@ async function fetchAllData(day = 0) {
             if (!cityData[city]) cityData[city] = {};
             cityData[city][day] = data;
         } catch (e) {
-            console.error(`Failed to fetch ${city} for day ${day}:`, e);
+            console.error(`Failed to fetch ${city} for day ${day}:`, e); alert(`Fetch error for ${city}: ${e.message}`);
         }
     });
 
