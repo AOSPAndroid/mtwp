@@ -3,7 +3,7 @@
    Minimal highest-temp aggregator for Polymarket
    ═══════════════════════════════════════════════════════════════ */
 
-const API = 'https://chat-hazardous-determination-inns.trycloudflare.com';
+const API = '';
 const REFRESH_SECONDS = 60;
 const CITIES = ['london', 'paris', 'dallas', 'miami'];
 
