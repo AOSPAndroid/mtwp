@@ -115,7 +115,8 @@ async function scrapeForecast(cfg) {
       targetDate.setDate(targetDate.getDate() + dayOffset);
       const dateStr = targetDate.toISOString().split('T')[0];
       
-      const query = `${site.name} ${cfg.displayName} max temperature forecast ${dayLabels[dayOffset]} ${dateStr}`;
+      // REFINED QUERIES: Explicitly ask for HIGH/MAX temperature
+      const query = `${site.name} ${cfg.displayName} forecast maximum high temperature ${dayLabels[dayOffset]} ${dateStr}`;
       
       dayTasks.push(
         (async () => {
@@ -131,15 +132,15 @@ async function scrapeForecast(cfg) {
             for (const res of results) {
               const text = (res.description + ' ' + res.title).toLowerCase();
               
-              // REFINED REGEX: Prioritize "Maximum daytime temperature" for Met Office specifically
-              const isMetOffice = site.id === 'metoffice';
-              const match = (isMetOffice ? text.match(/maximum daytime temperature:\s*(\d+)/i) : null) || 
-                            text.match(/high (?:of )?(\d+)/) || 
+              // REFINED REGEX: Prioritize "Maximum daytime temperature" or "High" markers
+              const match = text.match(/maximum daytime temperature:?\s*(\d+)/i) || 
+                            text.match(/high (?:of )?(\d+)/i) || 
+                            text.match(/max (?:of )?(\d+)/i) ||
                             text.match(/(\d+)°/);
                             
               if (match) {
                 maxTemp = parseInt(match[1]);
-                // Smart auto-conversion
+                // Smart auto-conversion based on city unit
                 if (cfg.unit === 'C' && maxTemp > 40) maxTemp = fToC(maxTemp);
                 else if (cfg.unit === 'F' && maxTemp < 32) maxTemp = cToF(maxTemp);
                 break;
@@ -335,6 +336,14 @@ app.get('/api/config', (req, res) => {
     unit: s.unit,
   }));
   res.json({ cities });
+});
+
+// ─── Static frontend (production) ───────────────────────────────
+app.use(express.static(DIST_DIR));
+
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  res.sendFile(path.join(DIST_DIR, 'index.html'));
 });
 
 app.listen(PORT, () => {
