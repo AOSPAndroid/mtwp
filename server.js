@@ -103,69 +103,61 @@ const STATIONS = {
 };
 
 // ─── Scrapper Logic ──────────────────────────────────────────────
-async function scrapeForecast(cfg) {
+async function scrapeForecastForDay(cfg, dayOffset) {
   if (!cfg.scrapperUrls) return [];
   const scraped = [];
   const dayLabels = ['Today', 'Tomorrow', 'Day After'];
-  
-  for (const site of cfg.scrapperUrls) {
-    const dayTasks = [];
-    for (let dayOffset = 0; dayOffset < 3; dayOffset++) {
-      const targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() + dayOffset);
-      const dateStr = targetDate.toISOString().split('T')[0];
-      
-      // REFINED QUERIES: Explicitly ask for HIGH/MAX temperature
-      const query = `${site.name} ${cfg.displayName} forecast maximum high temperature ${dayLabels[dayOffset]} ${dateStr}`;
-      
-      dayTasks.push(
-        (async () => {
-          await new Promise(r => setTimeout(r, dayOffset * 1000));
-          
-          return safeFetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=3`, 10000, {
-            'Accept': 'application/json',
-            'X-Subscription-Token': 'BSA5cySMsS-dOvqz4kIyopBT8v0SOhq'
-          })
-          .then(data => {
-            const results = data.web?.results || [];
-            let maxTemp = null;
-            for (const res of results) {
-              const text = (res.description + ' ' + res.title).toLowerCase();
-              
-              // REFINED REGEX: Prioritize "Maximum daytime temperature" or "High" markers
-              const match = text.match(/maximum daytime temperature:?\s*(\d+)/i) || 
-                            text.match(/high (?:of )?(\d+)/i) || 
-                            text.match(/max (?:of )?(\d+)/i) ||
-                            text.match(/(\d+)°/);
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + dayOffset);
+  const dateStr = targetDate.toISOString().split('T')[0];
+
+  const tasks = cfg.scrapperUrls.map(async (site) => {
+    try {
+      // Improved query to target "Maximum high"
+      const query = `${site.name} ${cfg.displayName} max temperature forecast ${dayLabels[dayOffset]} ${dateStr}`;
+      const data = await safeFetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`, 10000, {
+        'Accept': 'application/json',
+        'X-Subscription-Token': 'BSA5cySMsS-dOvqz4kIyopBT8v0SOhq'
+      });
+
+      const results = data.web?.results || [];
+      let maxTemp = null;
+      for (const res of results) {
+        const text = (res.description + ' ' + res.title).toLowerCase();
+        
+        // REFINED REGEX: Look for "high X" or "max X" or range "X / Y"
+        // Also handling "Feels like ... high 11C"
+        const match = text.match(/high (?:of )?(\d+)/i) || 
+                      text.match(/max (?:of )?(\d+)/i) ||
+                      text.match(/(\d+)°?\s?\/\s?(\d+)°/) || // Handle 52 / 47 format
+                      text.match(/(\d+)°/);
                             
-              if (match) {
-                maxTemp = parseInt(match[1]);
-                // Smart auto-conversion based on city unit
-                if (cfg.unit === 'C' && maxTemp > 40) maxTemp = fToC(maxTemp);
-                else if (cfg.unit === 'F' && maxTemp < 32) maxTemp = cToF(maxTemp);
-                break;
-              }
-            }
-            if (maxTemp) {
-              scraped.push({
-                id: `scraped_${site.id}_d${dayOffset}`,
-                name: `${site.name} (${dayLabels[dayOffset]})`,
-                type: 'scraped',
-                dayOffset,
-                date: dateStr,
-                temp_c: cfg.unit === 'C' ? maxTemp : fToC(maxTemp),
-                temp_f: cfg.unit === 'F' ? maxTemp : cToF(maxTemp),
-                url: site.url
-              });
-            }
-          })
-          .catch(e => console.error(`Scrape failed for ${site.name} D+${dayOffset}:`, e.message));
-        })()
-      );
+        if (match) {
+          // If match group 1 is high and group 2 is low (for range)
+          maxTemp = parseInt(match[1]);
+          
+          // Smart auto-conversion based on city unit
+          if (cfg.unit === 'C' && maxTemp > 40) maxTemp = fToC(maxTemp);
+          else if (cfg.unit === 'F' && maxTemp < 32) maxTemp = cToF(maxTemp);
+          break;
+        }
+      }
+      if (maxTemp) {
+        scraped.push({
+          id: `scraped_${site.id}_d${dayOffset}`,
+          name: `${site.name}`,
+          type: 'scraped',
+          temp_c: cfg.unit === 'C' ? maxTemp : fToC(maxTemp),
+          temp_f: cfg.unit === 'F' ? maxTemp : cToF(maxTemp),
+          url: site.url
+        });
+      }
+    } catch (e) {
+      console.error(`Scrape failed for ${site.name} D+${dayOffset}:`, e.message);
     }
-    await Promise.all(dayTasks);
-    await new Promise(r => setTimeout(r, 2000));
-  }
+  });
+  
+  await Promise.all(tasks);
   return scraped;
 }
 
@@ -201,6 +193,7 @@ async function safeFetch(url, timeoutMs = 15000, headers = {}) {
 // ─── Aggregate Route: All data for a city ────────────────────────
 app.get('/api/all/:city', async (req, res) => {
   const city = req.params.city.toLowerCase();
+  const dayOffset = parseInt(req.query.day || '0');
   const cfg = STATIONS[city];
   if (!cfg) return res.status(400).json({ error: 'Unknown city' });
 
@@ -208,7 +201,7 @@ app.get('/api/all/:city', async (req, res) => {
   const tasks = [];
 
   // 2) NWS Observation (US only)
-  if (cfg.nwsStation) {
+  if (cfg.nwsStation && dayOffset === 0) {
     tasks.push(
       safeFetch(`https://api.weather.gov/stations/${cfg.nwsStation}/observations/latest`)
         .then(d => {
@@ -228,55 +221,22 @@ app.get('/api/all/:city', async (req, res) => {
     );
   }
 
-  // 3) NWS Forecast — daytime highs only (US only)
-  if (cfg.nwsGrid) {
-    tasks.push(
-      safeFetch(`https://api.weather.gov/gridpoints/${cfg.nwsGrid.office}/${cfg.nwsGrid.x},${cfg.nwsGrid.y}/forecast`)
-        .then(d => {
-          const periods = d?.properties?.periods;
-          if (!periods) return;
-          const dayPeriods = periods.filter(p => p.isDaytime).slice(0, 3);
-          const forecasts = dayPeriods.map(p => ({
-            name: p.name,
-            temp_f: p.temperature,
-            temp_c: fToC(p.temperature),
-            startTime: p.startTime,
-            shortForecast: p.shortForecast,
-          }));
-          sources.push({
-            id: 'nws_forecast',
-            name: 'NWS Forecast',
-            type: 'forecast',
-            forecasts,
-          });
-        })
-        .catch(() => { })
-    );
-  }
-
   // 4) Open-Meteo Multi-Model — daily max temps
   const models = cfg.openMeteoModels.join(',');
   const omUrl = `https://api.open-meteo.com/v1/forecast?latitude=${cfg.lat}&longitude=${cfg.lon}&daily=temperature_2m_max&models=${models}&timezone=${encodeURIComponent(cfg.timezone)}&forecast_days=3`;
   tasks.push(
     safeFetch(omUrl)
       .then(data => {
-        const days = data?.daily?.time;
-        if (!days) return;
         for (const model of cfg.openMeteoModels) {
           const key = `temperature_2m_max_${model}`;
-          if (data.daily[key]) {
-            const label = cfg.modelLabels[model];
-            const dailyMax = {};
-            days.forEach((day, i) => {
-              const tc = data.daily[key][i];
-              dailyMax[day] = { temp_c: tc, temp_f: cToF(tc) };
-            });
+          if (data?.daily?.[key]) {
+            const val = data.daily[key][dayOffset];
             sources.push({
-              id: `model_${label.toLowerCase()}`,
-              name: label,
+              id: `model_${cfg.modelLabels[model]}`,
+              name: cfg.modelLabels[model],
               type: 'model',
-              days,
-              dailyMax,
+              temp_c: val,
+              temp_f: cToF(val)
             });
           }
         }
@@ -284,41 +244,15 @@ app.get('/api/all/:city', async (req, res) => {
       .catch(() => { })
   );
 
-  // 5) IEM Daily Summary — recorded max so far (US only)
-  if (cfg.iemNetwork) {
-    const now = new Date();
-    const localStr = now.toLocaleString('en-US', { timeZone: cfg.timezone });
-    const local = new Date(localStr);
-    const iemUrl = `https://mesonet.agron.iastate.edu/api/1/daily.json?station=${cfg.icao}&network=${cfg.iemNetwork}&year=${local.getFullYear()}&month=${local.getMonth() + 1}&day=${local.getDate()}`;
-    tasks.push(
-      safeFetch(iemUrl)
-        .then(d => {
-          const entry = d?.data?.[0];
-          if (entry?.max_tmpf) {
-            sources.push({
-              id: 'iem',
-              name: 'IEM Recorded Max',
-              type: 'recorded',
-              temp_f: parseFloat(entry.max_tmpf),
-              temp_c: fToC(parseFloat(entry.max_tmpf)),
-              date: entry.date,
-            });
-          }
-        })
-        .catch(() => { })
-    );
-  }
-
   await Promise.all(tasks);
 
   // 6) Scrapper Integration
-  const scraped = await scrapeForecast(cfg);
+  const scraped = await scrapeForecastForDay(cfg, dayOffset);
   sources.push(...scraped);
 
   res.json({
     city,
     station: cfg.icao,
-    name: cfg.name,
     displayName: cfg.displayName,
     unit: cfg.unit,
     sources,
